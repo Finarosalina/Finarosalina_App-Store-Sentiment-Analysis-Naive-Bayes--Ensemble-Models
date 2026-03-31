@@ -1,112 +1,139 @@
-# Data Science Project Boilerplate
+# 💬 App Store Sentiment Analysis — Naive Bayes & Ensemble Models
 
-This boilerplate is designed to kickstart data science projects by providing a basic setup for database connections, data processing, and machine learning model development. It includes a structured folder organization for your datasets and a set of pre-defined Python packages necessary for most data science tasks.
+**Binary sentiment classification of Google Play Store reviews using Naive Bayes variants, VotingClassifier, and XGBoost, with systematic model comparison and hyperparameter optimization.**
 
-## Structure
+---
 
-The project is organized as follows:
+## Overview
 
-- **`src/app.py`** → Main Python script where your project will run.
-- **`src/explore.ipynb`** → Notebook for exploration and testing. Once exploration is complete, migrate the clean code to `app.py`.
-- **`src/utils.py`** → Auxiliary functions, such as database connection.
-- **`requirements.txt`** → List of required Python packages.
-- **`models/`** → Will contain your SQLAlchemy model classes.
-- **`data/`** → Stores datasets at different stages:
-  - **`data/raw/`** → Raw data.
-  - **`data/interim/`** → Temporarily transformed data.
-  - **`data/processed/`** → Data ready for analysis.
+This project builds a sentiment classifier to predict whether a Google Play Store review is positive or negative (polarity: 0 = negative, 1 = positive). Three Naive Bayes variants are evaluated and compared, followed by ensemble methods and XGBoost, with honest analysis of where each model succeeds and fails.
 
+A key methodological insight emerges: for text classification with count-based features, MultinomialNB outperforms GaussianNB and BernoulliNB — despite BernoulliNB being theoretically appealing for binary outputs.
 
-## ⚡ Initial Setup in Codespaces (Recommended)
+---
 
-No manual setup is required, as **Codespaces is automatically configured** with the predefined files created by the academy for you. Just follow these steps:
+## Dataset
 
-1. **Wait for the environment to configure automatically**.
-   - All necessary packages and the database will install themselves.
-   - The automatically created `username` and `db_name` are in the **`.env`** file at the root of the project.
-2. **Once Codespaces is ready, you can start working immediately**.
+- **Source:** [4Geeks Academy Naive Bayes Tutorial](https://raw.githubusercontent.com/4GeeksAcademy/naive-bayes-project-tutorial/main/playstore_reviews.csv)
+- **Records:** 891 reviews (after preprocessing)
+- **Features:** Review text (vectorized with CountVectorizer)
+- **Target:** Polarity — 0 (negative) / 1 (positive)
+- **Class distribution:** ~70% negative / ~30% positive
 
+---
 
-## 💻 Local Setup (Only if you can't use Codespaces)
+## Methodology
 
-**Prerequisites**
+**1. Preprocessing**
+- Removed `package_name` column
+- Lowercased and stripped review text
+- CountVectorizer with English stopword removal
+- Train/test split: 80/20, random_state=42
 
-Make sure you have Python 3.11+ installed on your machine. You will also need pip to install the Python packages.
+**2. Models Evaluated**
 
-**Installation**
+| Model | Train Accuracy | Test Accuracy | Notes |
+|---|---|---|---|
+| MultinomialNB (baseline) | 0.961 | 0.816 | Best overall for count features |
+| GaussianNB | 0.986 | 0.804 | Overfits — dense matrix required |
+| BernoulliNB | 0.920 | 0.771 | Weaker on frequency data |
+| VotingClassifier (MNB + RF) | 0.971 | 0.810 | No improvement over MNB alone |
+| MultinomialNB optimized (α=0.5) | 0.968 | **0.827** | Best test performance |
+| XGBoost baseline | 0.965 | 0.810 | High overfitting risk |
+| XGBoost optimized (GridSearchCV) | 0.885 | 0.777 | Reduced overfitting, lower accuracy |
 
-Clone the project repository to your local machine.
+**3. Hyperparameter Optimization**
+- MultinomialNB: RandomizedSearchCV over alpha ∈ [0.1, 0.5, 1.0, 2.0, 5.0] → best alpha = 0.5
+- XGBoost: GridSearchCV over 108 combinations (n_estimators, learning_rate, max_depth, subsample, colsample_bytree) → best params selected but did not improve test accuracy
 
-Navigate to the project directory and install the required Python packages:
+**4. Final Model**
+Optimized MultinomialNB (alpha=0.5) — best test accuracy (82.7%) with lowest computational cost.
+
+---
+
+## Key Finding
+
+BernoulliNB was initially expected to perform best given the binary classification target. However, the feature space is count-based (word frequencies), not binary presence/absence — making MultinomialNB the more appropriate and better-performing choice. This highlights the importance of matching model assumptions to feature distribution, not just to the output variable type.
+
+XGBoost with GridSearchCV (324 fits) reduced overfitting but delivered lower test accuracy than the simple optimized MultinomialNB — a case where a simpler model wins on both performance and efficiency.
+
+---
+
+## Results Summary
+
+**Final model — MultinomialNB (alpha=0.5):**
+
+| Metric | Class 0 (Negative) | Class 1 (Positive) | Overall |
+|---|---|---|---|
+| Precision | 0.86 | 0.73 | — |
+| Recall | 0.90 | 0.66 | — |
+| F1-score | 0.88 | 0.69 | — |
+| Accuracy | — | — | **0.827** |
+
+---
+
+## Tech Stack
+
+- **NLP** — scikit-learn CountVectorizer
+- **Models** — MultinomialNB, GaussianNB, BernoulliNB, RandomForestClassifier, XGBClassifier
+- **Ensemble** — VotingClassifier (soft voting)
+- **Optimization** — RandomizedSearchCV, GridSearchCV
+- **Persistence** — pickle
+
+---
+
+## Project Structure
+
+```
+Finarosalina_Bayes_bueno_MlL/
+├── src/
+│   ├── explore.ipynb                          # Full analysis notebook
+│   └── app.py                                 # Exported pipeline script
+├── models/
+│   └── modelo_voting_classifier_opt.pkl       # Saved optimized VotingClassifier
+├── data/
+│   └── processed/
+│       ├── X_train.csv
+│       ├── X_test.csv
+│       ├── y_train.csv
+│       └── y_test.csv
+└── README.md
+```
+
+---
+
+## How to Run
 
 ```bash
-pip install -r requirements.txt
+# Clone the repository
+git clone https://github.com/Finarosalina/Finarosalina_Bayes_bueno_MlL.git
+cd Finarosalina_Bayes_bueno_MlL
+
+# Install dependencies
+pip install pandas scikit-learn xgboost
+
+# Run the notebook
+jupyter notebook src/explore.ipynb
 ```
 
-**Create a database (if necessary)**
+---
 
-Create a new database within the Postgres engine by customizing and executing the following command:
+## Key Learnings
 
-```bash
-$ psql -U postgres -c "DO \$\$ BEGIN 
-    CREATE USER my_user WITH PASSWORD 'my_password'; 
-    CREATE DATABASE my_database OWNER my_user; 
-END \$\$;"
-```
-Connect to the Postgres engine to use your database, manipulate tables, and data:
+- Model selection should be driven by feature distribution, not just output type — CountVectorizer output is multinomial, not binary
+- GaussianNB requires dense matrix conversion and overfits significantly on sparse text features
+- VotingClassifier did not improve over MultinomialNB alone — ensemble methods are not always better than a well-tuned single model
+- XGBoost with extensive GridSearchCV (108 combinations, 324 fits) failed to outperform a simple Naive Bayes — a reminder that computational cost does not equal performance
+- Laplace smoothing (alpha) in MultinomialNB is a high-impact, low-cost hyperparameter worth tuning first
 
-```bash
-$ psql -U my_user -d my_database
-```
+---
 
-Once inside PSQL, you can create tables, run queries, insert, update, or delete data, and much more!
+## Related Projects
 
-**Environment Variables**
+- [🔗 URL Spam Detection (NLP + SVM)](https://github.com/Finarosalina/Finarosalina_NLP_DL) — TF-IDF + SVM pipeline
+- [🍷 KNN Wine Quality Classifier](https://github.com/Finarosalina/Finarosalina_KNN_BUENO_ML_WINE) — supervised classification with imbalanced data
+- [🌍 Air Quality & Mortality](https://github.com/ullaom/air-quality-politics) — Random Forest with Streamlit deployment
 
-Create a .env file in the root directory of the project to store your environment variables, such as your database connection string:
+---
 
-```makefile
-DATABASE_URL="postgresql://<USER>:<PASSWORD>@<HOST>:<PORT>/<DB_NAME>"
-
-#example
-DATABASE_URL="postgresql://my_user:my_password@localhost:5432/my_database"
-```
-
-## Running the Application
-
-To run the application, execute the app.py script from the root directory of the project:
-
-```bash
-python src/app.py
-```
-
-## Adding Models
-
-To add SQLAlchemy model classes, create new Python script files within the models/ directory. These classes should be defined according to your database schema.
-
-Example model definition (`models/example_model.py`):
-
-```py
-from sqlalchemy.orm import declarative_base
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
-
-Base = declarative_base()
-
-class ExampleModel(Base):
-    __tablename__ = 'example_table'
-    id: Mapped[int] = mapped_column(primary_key=True)
-    username: Mapped[str] = mapped_column(unique=True)
-```
-
-## Working with Data
-
-You can place your raw datasets in the data/raw directory, intermediate datasets in data/interim, and processed datasets ready for analysis in data/processed.
-
-To process data, you can modify the app.py script to include your data processing steps, using pandas for data manipulation and analysis.
-
-## Contributors
-
-This template was built as part of the [Data Science and Machine Learning Bootcamp](https://4geeksacademy.com/us/coding-bootcamps/datascience-machine-learning) by 4Geeks Academy by [Alejandro Sanchez](https://twitter.com/alesanchezr) and many other contributors. Learn more about [4Geeks Academy BootCamp programs](https://4geeksacademy.com/us/programs) here.
-
-Other templates and resources like this can be found on the school's GitHub page.
+*Part of the 4Geeks Academy Data Science & ML program portfolio.*
